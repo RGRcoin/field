@@ -1,0 +1,394 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Посадка пшеницы</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            background-color: #87CEEB;
+            font-family: Arial, sans-serif;
+            overflow: hidden;
+        }
+
+        canvas {
+            display: block;
+            background-color: transparent;
+        }
+
+        .controls {
+            position: absolute;
+            bottom: 20px;
+            display: flex;
+            gap: 10px;
+        }
+
+        .controls button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 5px;
+        }
+
+        .controls button:active {
+            background-color: #45a049;
+        }
+
+        .message {
+            position: absolute;
+            top: 10px;
+            left: 50%;
+            transform: translateX(-50%);
+            background-color: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 16px;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="gameCanvas"></canvas>
+    <div class="controls">
+        <button id="plowButton">🪴 Разрыхлить</button>
+        <button id="waterButton">💧 Лейка</button>
+        <button id="seedButton">🌱 Зернышко</button>
+    </div>
+    <div class="message" id="message"></div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const message = document.getElementById('message');
+        const plowButton = document.getElementById('plowButton');
+        const waterButton = document.getElementById('waterButton');
+        const seedButton = document.getElementById('seedButton');
+
+        // Настройки
+        const GROUND_HEIGHT = 100; // Высота земли
+        const GROUND_COLOR = '#5C4033'; // Темно-коричневый цвет земли
+        const DARKEN_COLOR = '#3E2D1E'; // Цвет взрыхленной земли
+        const WATER_EMOJI = '💧'; // Эмодзи воды
+        const SEED_EMOJI = '🌱'; // Эмодзи зернышка
+        const STEM_COLOR = 'green'; // Цвет стебля
+        const GRAVITY = 0.5; // Гравитация для капель и зернышек
+        const DEFORMATION_STRENGTH = 5; // Сила деформации земли
+        const SMOOTHING_FACTOR = 0.3; // Сглаживание земли
+        const STEM_OFFSET = 3; // Смещение стебля вниз (в 10 раз меньше)
+        const WATER_SPOT_DURATION = 15000; // 15 секунд для темного пятна
+
+        let ground = []; // Массив точек земли
+        let waterDrops = []; // Массив капель воды
+        let seeds = []; // Массив зернышек
+        let stems = []; // Массив стеблей
+        let waterSpots = []; // Массив темных пятен от воды
+        let isPlowing = false;
+        let isWatering = false;
+        let isSeeding = false;
+        let isMouseDown = false;
+
+        // Инициализация земли
+        function initGround() {
+            for (let i = 0; i <= canvas.width; i += 10) {
+                ground.push({ x: i, y: canvas.height - GROUND_HEIGHT, darken: 0 });
+            }
+        }
+
+        // Отрисовка земли
+        function drawGround() {
+            ctx.beginPath();
+            ctx.moveTo(0, canvas.height);
+            ground.forEach(point => {
+                ctx.lineTo(point.x, point.y);
+                // Затемнение земли
+                ctx.fillStyle = `rgba(62, 45, 30, ${point.darken})`;
+                ctx.fillRect(point.x - 5, point.y, 10, GROUND_HEIGHT);
+            });
+            ctx.lineTo(canvas.width, canvas.height);
+            ctx.closePath();
+            ctx.fillStyle = GROUND_COLOR;
+            ctx.fill();
+        }
+
+        // Отрисовка воды (эмодзи капельки)
+        function drawWater() {
+            waterDrops.forEach(drop => {
+                ctx.font = '20px Arial';
+                ctx.fillText(WATER_EMOJI, drop.x, drop.y);
+            });
+        }
+
+        // Отрисовка темных пятен от воды (полоска, растекающаяся вниз)
+        function drawWaterSpots() {
+            waterSpots.forEach(spot => {
+                ctx.fillStyle = DARKEN_COLOR;
+                ctx.beginPath();
+                ctx.moveTo(spot.x - 10, spot.y);
+                ctx.lineTo(spot.x + 10, spot.y);
+                ctx.lineTo(spot.x + 10, spot.y + 20);
+                ctx.lineTo(spot.x - 10, spot.y + 20);
+                ctx.closePath();
+                ctx.fill();
+            });
+        }
+
+        // Отрисовка зернышек (эмодзи семечка)
+        function drawSeeds() {
+            seeds.forEach(seed => {
+                ctx.font = '20px Arial';
+                ctx.fillText(SEED_EMOJI, seed.x, seed.y);
+            });
+        }
+
+        // Отрисовка стеблей пшеницы
+        function drawStems() {
+            stems.forEach(stem => {
+                const groundY = getGroundHeight(stem.x); // Получаем текущую высоту земли
+                const stemBaseY = groundY - STEM_OFFSET; // База стебля привязана к земле
+
+                // Основной стебель
+                ctx.strokeStyle = STEM_COLOR;
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.moveTo(stem.x, stemBaseY);
+                ctx.lineTo(stem.x, stemBaseY - stem.height);
+                ctx.stroke();
+
+                // Колосок
+                if (stem.height > 20) {
+                    // Желтый кружок (колосок)
+                    ctx.fillStyle = 'gold';
+                    ctx.beginPath();
+                    ctx.ellipse(stem.x, stemBaseY - stem.height, 5, 10, 0, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    // Зернышки на колоске
+                    const seedCount = stem.seedCount; // Количество зернышек
+                    const columnHeight = Math.ceil((seedCount - 1) / 2); // Высота столбиков
+                    const seedSpacing = 5; // Расстояние между зернышками
+
+                    // Левый столбик
+                    for (let i = 0; i < columnHeight; i++) {
+                        ctx.fillStyle = 'brown';
+                        ctx.beginPath();
+                        ctx.arc(stem.x - 5, stemBaseY - stem.height - i * seedSpacing, 2, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+
+                    // Правый столбик
+                    for (let i = 0; i < columnHeight; i++) {
+                        ctx.fillStyle = 'brown';
+                        ctx.beginPath();
+                        ctx.arc(stem.x + 5, stemBaseY - stem.height - i * seedSpacing, 2, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+
+                    // Верхнее зернышко
+                    if (seedCount % 2 !== 0) {
+                        ctx.fillStyle = 'brown';
+                        ctx.beginPath();
+                        ctx.arc(stem.x, stemBaseY - stem.height - columnHeight * seedSpacing, 2, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+
+                    // Разветвления с листиками
+                    if (stem.height > 40) {
+                        // Левое разветвление
+                        ctx.strokeStyle = STEM_COLOR;
+                        ctx.lineWidth = 2;
+                        ctx.beginPath();
+                        ctx.moveTo(stem.x, stemBaseY - stem.height * 0.6);
+                        ctx.lineTo(stem.x - 15, stemBaseY - stem.height * 0.6 - 20);
+                        ctx.stroke();
+
+                        // Листик на левом разветвлении
+                        ctx.fillStyle = STEM_COLOR;
+                        ctx.beginPath();
+                        ctx.arc(stem.x - 15, stemBaseY - stem.height * 0.6 - 20, 3, 0, Math.PI * 2);
+                        ctx.fill();
+
+                        // Правое разветвление (чуть выше)
+                        ctx.beginPath();
+                        ctx.moveTo(stem.x, stemBaseY - stem.height * 0.5);
+                        ctx.lineTo(stem.x + 15, stemBaseY - stem.height * 0.5 - 20);
+                        ctx.stroke();
+
+                        // Листик на правом разветвлении
+                        ctx.beginPath();
+                        ctx.arc(stem.x + 15, stemBaseY - stem.height * 0.5 - 20, 3, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                }
+            });
+        }
+
+        // Деформация земли
+        function deformGround(x, strength) {
+            ground.forEach(point => {
+                const distance = Math.abs(point.x - x);
+                if (distance < 50) {
+                    point.y += (strength * (50 - distance)) / 50;
+                    point.darken = Math.min(1, point.darken + 0.05); // Затемнение земли
+                }
+            });
+        }
+
+        // Создание темного пятна от воды (полоска)
+        function createWaterSpot(x, y) {
+            waterSpots.push({ x, y, createdAt: Date.now() });
+        }
+
+        // Удаление старых темных пятен
+        function removeOldWaterSpots() {
+            const now = Date.now();
+            waterSpots = waterSpots.filter(spot => now - spot.createdAt < WATER_SPOT_DURATION);
+        }
+
+        // Проверка, есть ли темное пятно под точкой
+        function isOnWaterSpot(x, y) {
+            return waterSpots.some(spot => {
+                const distanceX = Math.abs(x - spot.x);
+                const distanceY = Math.abs(y - spot.y);
+                return distanceX < 10 && distanceY < 20; // Полоска шириной 20px и высотой 40px
+            });
+        }
+
+        // Получение высоты земли в точке X
+        function getGroundHeight(x) {
+            const point = ground.find(p => Math.abs(p.x - x) < 10);
+            return point ? point.y : canvas.height - GROUND_HEIGHT;
+        }
+
+        // Физика для капель и зернышек
+        function updatePhysics() {
+            // Капли воды
+            waterDrops.forEach(drop => {
+                drop.y += GRAVITY * 2; // Падение капли
+                const groundY = getGroundHeight(drop.x);
+                if (drop.y >= groundY) {
+                    drop.y = groundY;
+                    createWaterSpot(drop.x, drop.y); // Создание темного пятна
+                    waterDrops.splice(waterDrops.indexOf(drop), 1); // Удаление капли
+                }
+            });
+
+            // Зернышки
+            seeds.forEach(seed => {
+                seed.y += GRAVITY; // Падение зернышка
+                const groundY = getGroundHeight(seed.x);
+                if (seed.y >= groundY - STEM_OFFSET) {
+                    seed.y = groundY - STEM_OFFSET; // Проваливание на 3px
+                    const seedCount = isOnWaterSpot(seed.x, seed.y) ? [11, 13][Math.floor(Math.random() * 2)] : [7, 9][Math.floor(Math.random() * 2)];
+                    stems.push({ x: seed.x, y: seed.y, height: 0, seedCount }); // Создание стебля
+                    seeds.splice(seeds.indexOf(seed), 1); // Удаление зернышка
+                }
+            });
+
+            // Рост стеблей
+            stems.forEach(stem => {
+                if (stem.height < 100) {
+                    stem.height += 0.5; // Анимация роста
+                }
+            });
+
+            // Удаление старых темных пятен
+            removeOldWaterSpots();
+        }
+
+        // Показать сообщение
+        function showMessage(text) {
+            message.textContent = text;
+            message.style.display = 'block';
+            setTimeout(() => {
+                message.style.display = 'none';
+            }, 2000);
+        }
+
+        // Инициализация игры
+        function initGame() {
+            canvas.width = window.innerWidth * 0.9;
+            canvas.height = window.innerHeight * 0.9;
+            initGround();
+            showMessage('Используйте кнопки для взаимодействия!');
+        }
+
+        // Основной цикл игры
+        function gameLoop() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawGround();
+            drawWater();
+            drawWaterSpots();
+            drawSeeds();
+            drawStems();
+            updatePhysics();
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Обработка касаний/кликов
+        canvas.addEventListener('mousedown', (e) => {
+            isMouseDown = true;
+            if (isPlowing) {
+                deformGround(e.offsetX, -DEFORMATION_STRENGTH);
+            } else if (isWatering) {
+                waterDrops.push({ x: e.offsetX, y: e.offsetY });
+            } else if (isSeeding) {
+                seeds.push({ x: e.offsetX, y: e.offsetY });
+            }
+        });
+
+        canvas.addEventListener('mousemove', (e) => {
+            if (isMouseDown) {
+                if (isPlowing) {
+                    deformGround(e.offsetX, -DEFORMATION_STRENGTH);
+                } else if (isWatering) {
+                    waterDrops.push({ x: e.offsetX, y: e.offsetY });
+                } else if (isSeeding) {
+                    seeds.push({ x: e.offsetX, y: e.offsetY });
+                }
+            }
+        });
+
+        canvas.addEventListener('mouseup', () => {
+            isMouseDown = false;
+        });
+
+        // Кнопка разрыхления
+        plowButton.addEventListener('click', () => {
+            isPlowing = true;
+            isWatering = false;
+            isSeeding = false;
+            showMessage('Разрыхляйте землю, зажимая и проводя по экрану!');
+        });
+
+        // Кнопка лейки
+        waterButton.addEventListener('click', () => {
+            isPlowing = false;
+            isWatering = true;
+            isSeeding = false;
+            showMessage('Поливайте землю, зажимая и проводя по экрану!');
+        });
+
+        // Кнопка зернышка
+        seedButton.addEventListener('click', () => {
+            isPlowing = false;
+            isWatering = false;
+            isSeeding = true;
+            showMessage('Сажайте зернышки, зажимая и проводя по экрану!');
+        });
+
+        // Запуск игры
+        initGame();
+        gameLoop();
+    </script>
+</body>
+</html>
