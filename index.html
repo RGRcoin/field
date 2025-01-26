@@ -2,393 +2,526 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Посадка пшеницы</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Калькулятор урожайности</title>
     <style>
         body {
+            font-family: Arial, sans-serif;
             margin: 0;
             padding: 0;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            background-color: #87CEEB;
-            font-family: Arial, sans-serif;
-            overflow: hidden;
+            background-color: #1e3f1e; /* Темно-зеленый */
+            color: #f5f5f5; /* Светлый текст */
         }
-
-        canvas {
+        .container {
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 20px;
+            background-color: #2d5a2d; /* Средне-зеленый */
+            border-radius: 10px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.5);
+            transition: transform 0.3s ease;
+        }
+        .container:hover {
+            transform: scale(1.02);
+        }
+        h1 {
+            text-align: center;
+            color: #ffd700; /* Желтый */
+            animation: fadeIn 1s ease-in-out;
+            font-size: 24px;
+        }
+        label {
             display: block;
-            background-color: transparent;
+            margin-top: 15px;
+            color: #ffd700; /* Желтый */
+            font-size: 14px;
         }
-
-        .controls {
-            position: absolute;
-            bottom: 20px;
-            display: flex;
-            gap: 10px;
-        }
-
-        .controls button {
-            padding: 10px 20px;
-            font-size: 16px;
-            cursor: pointer;
-            background-color: #4CAF50;
-            color: white;
+        input, select, button {
+            width: 100%;
+            padding: 10px;
+            margin-top: 5px;
             border: none;
             border-radius: 5px;
+            font-size: 14px;
+            transition: all 0.3s ease;
+            box-sizing: border-box; /* Учитываем padding в ширине */
         }
-
-        .controls button:active {
-            background-color: #45a049;
+        input, select {
+            background-color: #f5f5f5; /* Светлый фон */
+            color: #1e3f1e; /* Темно-зеленый текст */
         }
-
-        .message {
-            position: absolute;
-            top: 10px;
-            left: 50%;
-            transform: translateX(-50%);
-            background-color: rgba(0, 0, 0, 0.7);
-            color: white;
-            padding: 10px;
+        button {
+            background-color: #ffd700; /* Желтый */
+            color: #1e3f1e; /* Темно-зеленый текст */
+            font-weight: bold;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        button:hover {
+            background-color: #e6c200; /* Темнее желтый */
+        }
+        .result, .cost {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #3d6b3d; /* Светло-зеленый */
             border-radius: 5px;
-            font-size: 16px;
-            display: none;
+            text-align: left;
+            font-size: 14px;
+            color: #ffd700; /* Желтый */
+            animation: fadeIn 1s ease-in-out;
+        }
+        .warning {
+            margin-top: 10px;
+            color: #ff6b6b; /* Красный */
+            text-align: center;
+            font-weight: bold;
+            animation: fadeIn 1s ease-in-out;
+            font-size: 14px;
+        }
+        .form-row {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        .form-row > div {
+            flex: 1;
+            min-width: 150px;
+        }
+        .tooltip {
+            font-size: 12px;
+            color: #ccc;
+            margin-top: 5px;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        @media (max-width: 600px) {
+            .form-row {
+                flex-direction: column;
+            }
+            input, select, button {
+                font-size: 14px;
+            }
+            .container {
+                margin: 10px auto;
+                padding: 15px;
+            }
+            h1 {
+                font-size: 20px;
+            }
         }
     </style>
 </head>
 <body>
-    <canvas id="gameCanvas"></canvas>
-    <div class="controls">
-        <button id="plowButton">🪴 Разрыхлить</button>
-        <button id="waterButton">💧 Лейка</button>
-        <button id="seedButton">🌱 Зернышко</button>
+    <div class="container">
+        <h1>Калькулятор урожайности</h1>
+        <form id="calculator">
+            <!-- Меню выбора культуры -->
+            <div class="form-row">
+                <div>
+                    <label for="cropType">Тип культуры:</label>
+                    <select id="cropType" name="cropType" onchange="updateCropData()">
+                        <option value="wheat">Пшеница</option>
+                        <option value="barley">Ячмень</option>
+                        <option value="coriander">Кориандр</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Поля для выбора сорта -->
+            <div class="form-row">
+                <div>
+                    <label for="cropVariety">Сорт:</label>
+                    <select id="cropVariety" name="cropVariety"></select>
+                </div>
+            </div>
+
+            <!-- Остальные поля формы -->
+            <div class="form-row">
+                <div>
+                    <label for="soilType">Тип почвы:</label>
+                    <select id="soilType" name="soilType">
+                        <option value="chernozem">Чернозем</option>
+                        <option value="loam">Суглинок</option>
+                        <option value="sandy">Песчаная</option>
+                        <option value="darkChestnut">Темно-каштановая</option>
+                        <option value="solonchak">Солончак</option>
+                    </select>
+                </div>
+            </div>
+
+            <h3>Удобрения во время посева:</h3>
+            <div class="form-row">
+                <div>
+                    <label for="fertilizerType1">Тип удобрения:</label>
+                    <select id="fertilizerType1" name="fertilizerType1">
+                        <option value="none">Не добавлять</option>
+                        <option value="selitra">Селитра (34% N)</option>
+                        <option value="carbamide">Карбамид (46% N)</option>
+                        <option value="ammophos">Аммофос (12% N, 52% P)</option>
+                        <option value="sulfammophos">Сульфоаммофос (20% N, 20% P)</option>
+                        <option value="potassiumSalt">Калийная соль (60% K)</option>
+                    </select>
+                    <div class="tooltip" id="fertilizerTip1"></div>
+                </div>
+                <div>
+                    <label for="fertilizerAmount1">Количество (кг/га):</label>
+                    <input type="number" id="fertilizerAmount1" name="fertilizerAmount1" min="0" value="0">
+                </div>
+            </div>
+
+            <h3>Удобрения во время подкормки:</h3>
+            <div class="form-row">
+                <div>
+                    <label for="fertilizerType2">Тип удобрения:</label>
+                    <select id="fertilizerType2" name="fertilizerType2">
+                        <option value="none">Не добавлять</option>
+                        <option value="selitra">Селитра (34% N)</option>
+                        <option value="carbamide">Карбамид (46% N)</option>
+                        <option value="ammophos">Аммофос (12% N, 52% P)</option>
+                        <option value="sulfammophos">Сульфоаммофос (20% N, 20% P)</option>
+                        <option value="potassiumSalt">Калийная соль (60% K)</option>
+                    </select>
+                    <div class="tooltip" id="fertilizerTip2"></div>
+                </div>
+                <div>
+                    <label for="fertilizerAmount2">Количество (кг/га):</label>
+                    <input type="number" id="fertilizerAmount2" name="fertilizerAmount2" min="0" value="0">
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div>
+                    <label for="moisture">Влажность почвы:</label>
+                    <select id="moisture" name="moisture">
+                        <option value="dry">Сухая (почва рассыпается в руках)</option>
+                        <option value="slightlyMoist">Слегка влажная (почва слегка липнет к рукам)</option>
+                        <option value="moist">Влажная (почва легко формируется в комок)</option>
+                        <option value="veryMoist">Очень влажная (почва оставляет влагу на руках)</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="temperature">Температура (°C):</label>
+                    <input type="number" id="temperature" name="temperature" min="-10" max="40" required>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div>
+                    <label for="fallow">Поле было под паром?</label>
+                    <select id="fallow" name="fallow">
+                        <option value="yes">Да</option>
+                        <option value="no">Нет</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="predecessor">Предшественник (необязательно, если поле под паром):</label>
+                    <select id="predecessor" name="predecessor">
+                        <option value="none">Нет данных</option>
+                        <option value="legumes">Бобовые (горох, люцерна)</option>
+                        <option value="cereals">Зерновые (ячмень, кукуруза)</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Новые поля -->
+            <div class="form-row">
+                <div>
+                    <label for="ph">pH почвы:</label>
+                    <select id="ph" name="ph">
+                        <option value="optimal">Оптимальный (6-7)</option>
+                        <option value="acidic">Кислая (pH < 5)</option>
+                        <option value="alkaline">Щелочная (pH > 8)</option>
+                    </select>
+                </div>
+                <div>
+                    <label for="precipitation">Осадки:</label>
+                    <select id="precipitation" name="precipitation">
+                        <option value="low">Мало осадков</option>
+                        <option value="normal">Нормальное количество</option>
+                        <option value="high">Много осадков</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div>
+                    <label for="disease">Болезни и вредители:</label>
+                    <select id="disease" name="disease">
+                        <option value="none">Нет</option>
+                        <option value="low">Небольшое влияние</option>
+                        <option value="high">Сильное влияние</option>
+                    </select>
+                </div>
+            </div>
+
+            <button type="button" onclick="calculateYield()">Рассчитать урожайность</button>
+        </form>
+
+        <div class="cost" id="cost"></div>
+        <div class="result" id="result"></div>
+        <div class="warning" id="warning"></div>
     </div>
-    <div class="message" id="message"></div>
 
     <script>
-        const canvas = document.getElementById('gameCanvas');
-        const ctx = canvas.getContext('2d');
-        const message = document.getElementById('message');
-        const plowButton = document.getElementById('plowButton');
-        const waterButton = document.getElementById('waterButton');
-        const seedButton = document.getElementById('seedButton');
-
-        // Настройки
-        const GROUND_HEIGHT = 100; // Высота земли
-        const GROUND_COLOR = '#5C4033'; // Темно-коричневый цвет земли
-        const DARKEN_COLOR = '#3E2D1E'; // Цвет взрыхленной земли
-        const WATER_EMOJI = '💧'; // Эмодзи воды
-        const SEED_EMOJI = '🌱'; // Эмодзи зернышка
-        const STEM_COLOR = 'green'; // Цвет стебля
-        const GRAVITY = 0.5; // Гравитация для капель и зернышек
-        const DEFORMATION_STRENGTH = 5; // Сила деформации земли
-        const SMOOTHING_FACTOR = 0.3; // Сглаживание земли
-        const STEM_OFFSET = 3; // Смещение стебля вниз (в 10 раз меньше)
-        const WATER_SPOT_DURATION = 15000; // 15 секунд для темного пятна
-
-        let ground = []; // Массив точек земли
-        let waterDrops = []; // Массив капель воды
-        let seeds = []; // Массив зернышек
-        let stems = []; // Массив стеблей
-        let waterSpots = []; // Массив темных пятен от воды
-        let isPlowing = false;
-        let isWatering = false;
-        let isSeeding = false;
-        let isMouseDown = false;
-
-        // Инициализация земли
-        function initGround() {
-            for (let i = 0; i <= canvas.width; i += 10) {
-                ground.push({ x: i, y: canvas.height - GROUND_HEIGHT, darken: 0 });
-            }
-        }
-
-        // Отрисовка земли
-        function drawGround() {
-            ctx.beginPath();
-            ctx.moveTo(0, canvas.height);
-            ground.forEach(point => {
-                ctx.lineTo(point.x, point.y);
-                // Затемнение земли
-                ctx.fillStyle = `rgba(62, 45, 30, ${point.darken})`;
-                ctx.fillRect(point.x - 5, point.y, 10, GROUND_HEIGHT);
-            });
-            ctx.lineTo(canvas.width, canvas.height);
-            ctx.closePath();
-            ctx.fillStyle = GROUND_COLOR;
-            ctx.fill();
-        }
-
-        // Отрисовка воды (эмодзи капельки)
-        function drawWater() {
-            waterDrops.forEach(drop => {
-                ctx.font = '20px Arial';
-                ctx.fillText(WATER_EMOJI, drop.x, drop.y);
-            });
-        }
-
-        // Отрисовка темных пятен от воды (полоска, растекающаяся вниз)
-        function drawWaterSpots() {
-            waterSpots.forEach(spot => {
-                ctx.fillStyle = DARKEN_COLOR;
-                ctx.beginPath();
-                ctx.moveTo(spot.x - 10, spot.y);
-                ctx.lineTo(spot.x + 10, spot.y);
-                ctx.lineTo(spot.x + 10, spot.y + 20);
-                ctx.lineTo(spot.x - 10, spot.y + 20);
-                ctx.closePath();
-                ctx.fill();
-            });
-        }
-
-        // Отрисовка зернышек (эмодзи семечка)
-        function drawSeeds() {
-            seeds.forEach(seed => {
-                ctx.font = '20px Arial';
-                ctx.fillText(SEED_EMOJI, seed.x, seed.y);
-            });
-        }
-
-        // Отрисовка стеблей пшеницы
-        function drawStems() {
-            stems.forEach(stem => {
-                const groundY = getGroundHeight(stem.x); // Получаем текущую высоту земли
-                const stemBaseY = groundY - STEM_OFFSET; // База стебля привязана к земле
-
-                // Основной стебель
-                ctx.strokeStyle = STEM_COLOR;
-                ctx.lineWidth = 3;
-                ctx.beginPath();
-                ctx.moveTo(stem.x, stemBaseY);
-                ctx.lineTo(stem.x, stemBaseY - stem.height);
-                ctx.stroke();
-
-                // Колосок
-                if (stem.height > 20) {
-                    // Желтый кружок (колосок)
-                    ctx.fillStyle = 'gold';
-                    ctx.beginPath();
-                    ctx.ellipse(stem.x, stemBaseY - stem.height, 5, 10, 0, 0, Math.PI * 2);
-                    ctx.fill();
-
-                    // Зернышки на колоске
-                    const seedCount = stem.seedCount; // Количество зернышек
-                    const columnHeight = Math.ceil((seedCount - 1) / 2); // Высота столбиков
-                    const seedSpacing = 5; // Расстояние между зернышками
-
-                    // Левый столбик
-                    for (let i = 0; i < columnHeight; i++) {
-                        ctx.fillStyle = 'brown';
-                        ctx.beginPath();
-                        ctx.arc(stem.x - 5, stemBaseY - stem.height - i * seedSpacing, 2, 0, Math.PI * 2);
-                        ctx.fill();
-                    }
-
-                    // Правый столбик
-                    for (let i = 0; i < columnHeight; i++) {
-                        ctx.fillStyle = 'brown';
-                        ctx.beginPath();
-                        ctx.arc(stem.x + 5, stemBaseY - stem.height - i * seedSpacing, 2, 0, Math.PI * 2);
-                        ctx.fill();
-                    }
-
-                    // Верхнее зернышко
-                    if (seedCount % 2 !== 0) {
-                        ctx.fillStyle = 'brown';
-                        ctx.beginPath();
-                        ctx.arc(stem.x, stemBaseY - stem.height - columnHeight * seedSpacing, 2, 0, Math.PI * 2);
-                        ctx.fill();
-                    }
-
-                    // Разветвления с листиками
-                    if (stem.height > 40) {
-                        // Левое разветвление
-                        ctx.strokeStyle = STEM_COLOR;
-                        ctx.lineWidth = 2;
-                        ctx.beginPath();
-                        ctx.moveTo(stem.x, stemBaseY - stem.height * 0.6);
-                        ctx.lineTo(stem.x - 15, stemBaseY - stem.height * 0.6 - 20);
-                        ctx.stroke();
-
-                        // Листик на левом разветвлении
-                        ctx.fillStyle = STEM_COLOR;
-                        ctx.beginPath();
-                        ctx.arc(stem.x - 15, stemBaseY - stem.height * 0.6 - 20, 3, 0, Math.PI * 2);
-                        ctx.fill();
-
-                        // Правое разветвление (чуть выше)
-                        ctx.beginPath();
-                        ctx.moveTo(stem.x, stemBaseY - stem.height * 0.5);
-                        ctx.lineTo(stem.x + 15, stemBaseY - stem.height * 0.5 - 20);
-                        ctx.stroke();
-
-                        // Листик на правом разветвлении
-                        ctx.beginPath();
-                        ctx.arc(stem.x + 15, stemBaseY - stem.height * 0.5 - 20, 3, 0, Math.PI * 2);
-                        ctx.fill();
-                    }
+        // Данные о культурах
+        const crops = {
+            wheat: {
+                name: "Пшеница",
+                varieties: [
+                    { name: "Гром", baseYield: 25 },
+                    { name: "Таня", baseYield: 30 },
+                    { name: "Алексеич", baseYield: 35 },
+                    { name: "Бумба", baseYield: 40 },
+                    { name: "Еланчик", baseYield: 45 }
+                ],
+                fertilizerNorms: {
+                    selitra: { minSowing: 50, maxSowing: 150, minTopDressing: 30, maxTopDressing: 100 },
+                    carbamide: { minSowing: 40, maxSowing: 120, minTopDressing: 20, maxTopDressing: 80 },
+                    ammonophos: { minSowing: 30, maxSowing: 100, minTopDressing: 20, maxTopDressing: 70 },
+                    sulfammophos: { minSowing: 40, maxSowing: 120, minTopDressing: 30, maxTopDressing: 90 },
+                    potassiumSalt: { minSowing: 20, maxSowing: 80, minTopDressing: 10, maxTopDressing: 60 }
                 }
-            });
-        }
-
-        // Деформация земли
-        function deformGround(x, strength) {
-            ground.forEach(point => {
-                const distance = Math.abs(point.x - x);
-                if (distance < 50) {
-                    point.y += (strength * (50 - distance)) / 50;
-                    point.darken = Math.min(1, point.darken + 0.05); // Затемнение земли
+            },
+            barley: {
+                name: "Ячмень",
+                varieties: [
+                    { name: "Иосиф", baseYield: 20 },
+                    { name: "Стратег", baseYield: 25 },
+                    { name: "Серп", baseYield: 30 },
+                    { name: "Самсон", baseYield: 35 },
+                    { name: "Романс", baseYield: 40 }
+                ],
+                fertilizerNorms: {
+                    selitra: { minSowing: 40, maxSowing: 120, minTopDressing: 20, maxTopDressing: 80 },
+                    carbamide: { minSowing: 30, maxSowing: 100, minTopDressing: 15, maxTopDressing: 70 },
+                    ammonophos: { minSowing: 20, maxSowing: 80, minTopDressing: 10, maxTopDressing: 60 },
+                    sulfammophos: { minSowing: 30, maxSowing: 90, minTopDressing: 20, maxTopDressing: 70 },
+                    potassiumSalt: { minSowing: 15, maxSowing: 60, minTopDressing: 5, maxTopDressing: 50 }
                 }
-            });
-        }
-
-        // Создание темного пятна от воды (полоска)
-        function createWaterSpot(x, y) {
-            waterSpots.push({ x, y, createdAt: Date.now() });
-        }
-
-        // Удаление старых темных пятен
-        function removeOldWaterSpots() {
-            const now = Date.now();
-            waterSpots = waterSpots.filter(spot => now - spot.createdAt < WATER_SPOT_DURATION);
-        }
-
-        // Проверка, есть ли темное пятно под точкой
-        function isOnWaterSpot(x, y) {
-            return waterSpots.some(spot => {
-                const distanceX = Math.abs(x - spot.x);
-                const distanceY = Math.abs(y - spot.y);
-                return distanceX < 10 && distanceY < 20; // Полоска шириной 20px и высотой 40px
-            });
-        }
-
-        // Получение высоты земли в точке X
-        function getGroundHeight(x) {
-            const point = ground.find(p => Math.abs(p.x - x) < 10);
-            return point ? point.y : canvas.height - GROUND_HEIGHT;
-        }
-
-        // Физика для капель и зернышек
-        function updatePhysics() {
-            // Капли воды
-            waterDrops.forEach(drop => {
-                drop.y += GRAVITY * 2; // Падение капли
-                const groundY = getGroundHeight(drop.x);
-                if (drop.y >= groundY) {
-                    drop.y = groundY;
-                    createWaterSpot(drop.x, drop.y); // Создание темного пятна
-                    waterDrops.splice(waterDrops.indexOf(drop), 1); // Удаление капли
-                }
-            });
-
-            // Зернышки
-            seeds.forEach(seed => {
-                seed.y += GRAVITY; // Падение зернышка
-                const groundY = getGroundHeight(seed.x);
-                if (seed.y >= groundY - STEM_OFFSET) {
-                    seed.y = groundY - STEM_OFFSET; // Проваливание на 3px
-                    const seedCount = isOnWaterSpot(seed.x, seed.y) ? [11, 13][Math.floor(Math.random() * 2)] : [7, 9][Math.floor(Math.random() * 2)];
-                    stems.push({ x: seed.x, y: seed.y, height: 0, seedCount }); // Создание стебля
-                    seeds.splice(seeds.indexOf(seed), 1); // Удаление зернышка
-                }
-            });
-
-            // Рост стеблей
-            stems.forEach(stem => {
-                if (stem.height < 100) {
-                    stem.height += 0.5; // Анимация роста
-                }
-            });
-
-            // Удаление старых темных пятен
-            removeOldWaterSpots();
-        }
-
-        // Показать сообщение
-        function showMessage(text) {
-            message.textContent = text;
-            message.style.display = 'block';
-            setTimeout(() => {
-                message.style.display = 'none';
-            }, 2000);
-        }
-
-        // Инициализация игры
-        function initGame() {
-            canvas.width = window.innerWidth * 0.9;
-            canvas.height = window.innerHeight * 0.9;
-            initGround();
-            showMessage('Используйте кнопки для взаимодействия!');
-        }
-
-        // Основной цикл игры
-        function gameLoop() {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            drawGround();
-            drawWater();
-            drawWaterSpots();
-            drawSeeds();
-            drawStems();
-            updatePhysics();
-            requestAnimationFrame(gameLoop);
-        }
-
-        // Обработка касаний/кликов
-        canvas.addEventListener('mousedown', (e) => {
-            isMouseDown = true;
-            if (isPlowing) {
-                deformGround(e.offsetX, -DEFORMATION_STRENGTH);
-            } else if (isWatering) {
-                waterDrops.push({ x: e.offsetX, y: e.offsetY });
-            } else if (isSeeding) {
-                seeds.push({ x: e.offsetX, y: e.offsetY });
-            }
-        });
-
-        canvas.addEventListener('mousemove', (e) => {
-            if (isMouseDown) {
-                if (isPlowing) {
-                    deformGround(e.offsetX, -DEFORMATION_STRENGTH);
-                } else if (isWatering) {
-                    waterDrops.push({ x: e.offsetX, y: e.offsetY });
-                } else if (isSeeding) {
-                    seeds.push({ x: e.offsetX, y: e.offsetY });
+            },
+            coriander: {
+                name: "Кориандр",
+                varieties: [
+                    { name: "Превенец", baseYield: 10 },
+                    { name: "Стимул", baseYield: 15 }
+                ],
+                fertilizerNorms: {
+                    selitra: { minSowing: 20, maxSowing: 80, minTopDressing: 10, maxTopDressing: 50 },
+                    carbamide: { minSowing: 15, maxSowing: 60, minTopDressing: 5, maxTopDressing: 40 },
+                    ammonophos: { minSowing: 10, maxSowing: 50, minTopDressing: 5, maxTopDressing: 30 },
+                    sulfammophos: { minSowing: 15, maxSowing: 60, minTopDressing: 10, maxTopDressing: 40 },
+                    potassiumSalt: { minSowing: 10, maxSowing: 40, minTopDressing: 5, maxTopDressing: 30 }
                 }
             }
-        });
+        };
 
-        canvas.addEventListener('mouseup', () => {
-            isMouseDown = false;
-        });
+        // Данные об удобрениях (актуальные цены на 2023 год)
+        const fertilizers = {
+            none: { N: 0, P: 0, K: 0, price: 0, minSowing: 0, maxSowing: 0, minTopDressing: 0, maxTopDressing: 0 },
+            selitra: { N: 34, P: 0, K: 0, price: 50 },
+            carbamide: { N: 46, P: 0, K: 0, price: 60 },
+            ammonophos: { N: 12, P: 52, K: 0, price: 70 },
+            sulfammophos: { N: 20, P: 20, K: 0, price: 80 },
+            potassiumSalt: { N: 0, P: 0, K: 60, price: 40 }
+        };
 
-        // Кнопка разрыхления
-        plowButton.addEventListener('click', () => {
-            isPlowing = true;
-            isWatering = false;
-            isSeeding = false;
-            showMessage('Разрыхляйте землю, зажимая и проводя по экрану!');
-        });
+        // Данные о влиянии почвы на урожайность (в %)
+        const soilEffects = {
+            chernozem: 10,   // Чернозем: +10% к урожайности
+            loam: 0,        // Суглинок: без изменений
+            sandy: -30,     // Песчаная: -30% к урожайности
+            darkChestnut: 5, // Темно-каштановая: +5% к урожайности
+            solonchak: -50  // Солончак: -50% к урожайности
+        };
 
-        // Кнопка лейки
-        waterButton.addEventListener('click', () => {
-            isPlowing = false;
-            isWatering = true;
-            isSeeding = false;
-            showMessage('Поливайте землю, зажимая и проводя по экрану!');
-        });
+        // Данные о влиянии влажности на урожайность (в %)
+        const moistureEffects = {
+            dry: -50,           // Сухая: -50%
+            slightlyMoist: -10, // Слегка влажная: -10%
+            moist: 10,          // Влажная: +10%
+            veryMoist: -20      // Очень влажная: -20%
+        };
 
-        // Кнопка зернышка
-        seedButton.addEventListener('click', () => {
-            isPlowing = false;
-            isWatering = false;
-            isSeeding = true;
-            showMessage('Сажайте зернышки, зажимая и проводя по экрану!');
-        });
+        // Влияние pH почвы (в %)
+        const phEffects = {
+            optimal: 0,     // pH 6-7: оптимально
+            acidic: -20,    // pH < 5: кислая почва
+            alkaline: -20   // pH > 8: щелочная почва
+        };
 
-        // Запуск игры
-        initGame();
-        gameLoop();
+        // Влияние осадков (в %)
+        const precipitationEffects = {
+            low: -20,       // Мало осадков
+            normal: 0,      // Нормальное количество
+            high: -10       // Много осадков
+        };
+
+        // Влияние болезней и вредителей (в %)
+        const diseaseEffects = {
+            none: 0,        // Нет болезней
+            low: -10,       // Небольшое влияние
+            high: -30       // Сильное влияние
+        };
+
+        // Функция для обновления сортов в зависимости от выбранной культуры
+        function updateCropData() {
+            const cropType = document.getElementById('cropType').value;
+            const cropVarietySelect = document.getElementById('cropVariety');
+            cropVarietySelect.innerHTML = ""; // Очищаем список сортов
+
+            crops[cropType].varieties.forEach(variety => {
+                const option = document.createElement('option');
+                option.value = variety.name.toLowerCase();
+                option.text = variety.name;
+                cropVarietySelect.appendChild(option);
+            });
+
+            updateFertilizerTips();
+        }
+
+        // Функция для отображения подсказок по удобрениям
+        function updateFertilizerTips() {
+            const cropType = document.getElementById('cropType').value;
+            const fertilizerType1 = document.getElementById('fertilizerType1').value;
+            const fertilizerType2 = document.getElementById('fertilizerType2').value;
+
+            const fertilizerData1 = crops[cropType].fertilizerNorms[fertilizerType1] || { minSowing: 0, maxSowing: 0, minTopDressing: 0, maxTopDressing: 0 };
+            const fertilizerData2 = crops[cropType].fertilizerNorms[fertilizerType2] || { minSowing: 0, maxSowing: 0, minTopDressing: 0, maxTopDressing: 0 };
+
+            document.getElementById('fertilizerTip1').innerText = `Рекомендуемые нормы: ${fertilizerData1.minSowing}-${fertilizerData1.maxSowing} кг/га (посев), ${fertilizerData1.minTopDressing}-${fertilizerData1.maxTopDressing} кг/га (подкормка)`;
+            document.getElementById('fertilizerTip2').innerText = `Рекомендуемые нормы: ${fertilizerData2.minSowing}-${fertilizerData2.maxSowing} кг/га (посев), ${fertilizerData2.minTopDressing}-${fertilizerData2.maxTopDressing} кг/га (подкормка)`;
+        }
+
+        // Обновляем подсказки при изменении типа удобрения
+        document.getElementById('fertilizerType1').addEventListener('change', updateFertilizerTips);
+        document.getElementById('fertilizerType2').addEventListener('change', updateFertilizerTips);
+
+        // Инициализация сортов при загрузке страницы
+        updateCropData();
+
+        function calculateYield() {
+            // Получаем значения из формы
+            const cropType = document.getElementById('cropType').value;
+            const cropVariety = document.getElementById('cropVariety').value;
+            const fertilizerType1 = document.getElementById('fertilizerType1').value;
+            const fertilizerAmount1 = parseFloat(document.getElementById('fertilizerAmount1').value) || 0;
+            const fertilizerType2 = document.getElementById('fertilizerType2').value;
+            const fertilizerAmount2 = parseFloat(document.getElementById('fertilizerAmount2').value) || 0;
+            const soilType = document.getElementById('soilType').value;
+            const moisture = document.getElementById('moisture').value;
+            const temperature = parseFloat(document.getElementById('temperature').value);
+            const fallow = document.getElementById('fallow').value;
+            const predecessor = document.getElementById('predecessor').value;
+            const ph = document.getElementById('ph').value;
+            const precipitation = document.getElementById('precipitation').value;
+            const disease = document.getElementById('disease').value;
+
+            // Проверка на корректность ввода
+            if (isNaN(temperature)) {
+                document.getElementById('warning').innerText = "Пожалуйста, заполните все поля корректно.";
+                return;
+            }
+
+            // Проверка норм удобрений
+            const fertilizerData1 = crops[cropType].fertilizerNorms[fertilizerType1] || { minSowing: 0, maxSowing: 0, minTopDressing: 0, maxTopDressing: 0 };
+            const fertilizerData2 = crops[cropType].fertilizerNorms[fertilizerType2] || { minSowing: 0, maxSowing: 0, minTopDressing: 0, maxTopDressing: 0 };
+
+            if (fertilizerAmount1 > fertilizerData1.maxSowing || fertilizerAmount2 > fertilizerData2.maxTopDressing) {
+                document.getElementById('warning').innerText = "Внимание: количество удобрений превышает максимальную норму! Растения могут погибнуть.";
+                document.getElementById('result').innerText = "Прогнозируемая урожайность: 0 ц/га (растения погибли)";
+                return;
+            }
+
+            // Проверка на гибель растений из-за низкой влажности и избытка удобрений
+            if (moisture === "dry" && (fertilizerAmount1 > 100 || fertilizerAmount2 > 100)) {
+                document.getElementById('warning').innerText = "Внимание: растения погибли из-за низкой влажности и избытка удобрений!";
+                document.getElementById('result').innerText = "Прогнозируемая урожайность: 0 ц/га (растения погибли)";
+                return;
+            }
+
+            // Рассчитываем количество N, P, K для удобрений
+            const nitrogen1 = (fertilizers[fertilizerType1].N / 100) * fertilizerAmount1;
+            const phosphorus1 = (fertilizers[fertilizerType1].P / 100) * fertilizerAmount1;
+            const potassium1 = (fertilizers[fertilizerType1].K / 100) * fertilizerAmount1;
+
+            const nitrogen2 = (fertilizers[fertilizerType2].N / 100) * fertilizerAmount2 * 1.3; // Усвоение на 30% лучше
+            const phosphorus2 = (fertilizers[fertilizerType2].P / 100) * fertilizerAmount2 * 1.3;
+            const potassium2 = (fertilizers[fertilizerType2].K / 100) * fertilizerAmount2 * 1.3;
+
+            // Общее количество N, P, K
+            const nitrogen = nitrogen1 + nitrogen2;
+            const phosphorus = phosphorus1 + phosphorus2;
+            const potassium = potassium1 + potassium2;
+
+            // Влияние почвы
+            const soilEffect = soilEffects[soilType] || 0;
+
+            // Влияние влажности
+            const moistureEffect = moistureEffects[moisture] || 0;
+
+            // Влияние температуры
+            let temperatureEffect = 0;
+            if (temperature < 10 || temperature > 30) {
+                temperatureEffect = -20; // Снижение урожайности на 20%
+            }
+
+            // Влияние пара и предшественника
+            let fallowEffect = (fallow === 'yes') ? 10 : 0; // +10% если пар
+            let predecessorEffect = 0;
+            if (fallow === 'no') {
+                switch (predecessor) {
+                    case 'legumes':
+                        predecessorEffect = 5; // +5% если бобовые
+                        break;
+                    case 'cereals':
+                        predecessorEffect = -5; // -5% если зерновые
+                        break;
+                    default:
+                        predecessorEffect = 0; // Без изменений
+                }
+            }
+
+            // Влияние pH почвы
+            const phEffect = phEffects[ph] || 0;
+
+            // Влияние осадков
+            const precipitationEffect = precipitationEffects[precipitation] || 0;
+
+            // Влияние болезней и вредителей
+            const diseaseEffect = diseaseEffects[disease] || 0;
+
+            // Базовая урожайность в зависимости от сорта
+            const selectedCrop = crops[cropType];
+            const selectedVariety = selectedCrop.varieties.find(v => v.name.toLowerCase() === cropVariety);
+            const baseYield = selectedVariety ? selectedVariety.baseYield : 25;
+
+            // Итоговая урожайность
+            let totalYield = baseYield + (nitrogen * 0.12) + (phosphorus * 0.1) + (potassium * 0.08);
+            totalYield = totalYield * (1 + (soilEffect + moistureEffect + temperatureEffect + fallowEffect + predecessorEffect + phEffect + precipitationEffect + diseaseEffect) / 100);
+
+            // Ограничение урожайности (не может быть меньше 0)
+            totalYield = Math.max(totalYield, 0);
+
+            // Вывод результата
+            document.getElementById('result').innerHTML = `
+                <strong>Прогнозируемая урожайность:</strong> ${totalYield.toFixed(2)} ц/га<br>
+                <strong>Состав поля:</strong><br>
+                - Азот (N): ${nitrogen.toFixed(2)} кг/га<br>
+                - Фосфор (P): ${phosphorus.toFixed(2)} кг/га<br>
+                - Калий (K): ${potassium.toFixed(2)} кг/га<br>
+                <strong>Условия:</strong><br>
+                - Влажность: ${document.getElementById('moisture').options[document.getElementById('moisture').selectedIndex].text}<br>
+                - Температура: ${temperature}°C<br>
+                - Тип почвы: ${soilType}<br>
+                - Пар: ${fallow === 'yes' ? 'Да' : 'Нет'}<br>
+                - Предшественник: ${predecessor === 'none' ? 'Нет данных' : predecessor}<br>
+                - pH почвы: ${ph}<br>
+                - Осадки: ${precipitation}<br>
+                - Болезни и вредители: ${disease}
+            `;
+        }
     </script>
 </body>
 </html>
